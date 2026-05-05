@@ -225,6 +225,7 @@ if user_input:
 st.session_state.messages.append({‘role’: ‘user’, ‘content’: user_input})
 with st.spinner(‘El tutor esta pensando…’):
 try:
+
 client = anthropic.Anthropic()
 resp = client.messages.create(
 model=‘claude-sonnet-4-20250514’,
