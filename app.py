@@ -2,7 +2,7 @@ import streamlit as st
 import openai
 import datetime
 
-WHITELIST = “parent1@gmail.com parent2@yahoo.com”.split()
+WHITELIST = "parent1@gmail.com parent2@yahoo.com".split()
 
 FREE_TRIAL_LIMIT = 3
 WA_URL = “https://wa.me/573228246703?text=Hola%2C+quiero+registrar+mi+correo+y+obtener+acceso+completo.”
