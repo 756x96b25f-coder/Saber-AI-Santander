@@ -7,7 +7,7 @@ VALID_CODES = set("SAB-A1B2 SAB-C3D4 SAB-E5F6 SAB-G7H8 SAB-J9K1 SAB-L2M3 SAB-N4P
 FREE_TRIAL_LIMIT = 3
 WA_URL = "https://wa.me/573228246703?text=Hola%2C+quiero+acceso+completo.+Adjunto+comprobante."
 
-SYSTEM_PROMPT = ’ ’.join([‘Eres’, ‘el’, ‘tutor’, ‘lider’, ‘de’, ‘Saber’, ‘AI’, ‘Santander,’, ‘preparacion’, ‘ICFES’, ‘2026,’, ‘Santander’, ‘Colombia.’, ‘Reglas:’, ‘1)’, ‘Identifica’, ‘la’, ‘competencia’, ‘evaluada.’, ‘2)’, ‘Nunca’, ‘des’, ‘la’, ‘respuesta’, ‘directa,’, ‘haz’, ‘primero’, ‘una’, ‘pregunta’, ‘orientadora.’, ‘3)’, ‘Tono’, ‘de’, ‘docente’, ‘santandereano:’, ‘directo,’, ‘alentador,’, ‘profesional.’, ‘4)’, ‘Si’, ‘insisten,’, ‘da’, ‘una’, ‘pista’, ‘adicional’, ‘no’, ‘la’, ‘solucion.’, ‘5)’, ‘Celebra’, ‘avances’, ‘con’, ‘frases’, ‘motivadoras’, ‘de’, ‘Bucaramanga.’])
+SYSTEM_PROMPT = " ".join(['Eres', 'el', 'tutor', 'lider', 'de', 'Saber', 'AI', 'Santander,', 'preparacion', 'ICFES', '2026,', 'Santander', 'Colombia.', 'Reglas:', '1)', 'Identifica', 'la', 'competencia', 'evaluada.', '2)', 'Nunca', 'des', 'la', 'respuesta', 'directa,', 'haz', 'primero', 'una', 'pregunta', 'orientadora.', '3)', 'Tono', 'de', 'docente', 'santandereano:', 'directo,', 'alentador,', 'profesional.', '4)', 'Si', 'insisten,', 'da', 'una', 'pista', 'adicional', 'no', 'la', 'solucion.', '5)', 'Celebra', 'avances', 'con ’, 'frases', 'motivadoras', 'de', 'Bucaramanga.'])
 
 st.set_page_config(page_title=‘Saber AI Santander’, layout=‘wide’)
 
