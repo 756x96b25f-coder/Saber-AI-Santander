@@ -1,434 +1,476 @@
+“””
+╔══════════════════════════════════════════════════════════╗
+║        SABER AI SANTANDER — app.py                       ║
+║  Tutor ICFES 2026 | Bucaramanga, Santander, Colombia     ║
+╚══════════════════════════════════════════════════════════╝
+“””
+
 import streamlit as st
-import pdfplumber
-import re
-from openai import OpenAI
+import anthropic
+import datetime
+
+# ─────────────────────────────────────────────────────────
+
+# 1. VALID ACCESS CODES
+
+# ─────────────────────────────────────────────────────────
+
+VALID_CODES = {
+“SAB-A1B2”, “SAB-C3D4”, “SAB-E5F6”, “SAB-G7H8”, “SAB-J9K1”,
+“SAB-L2M3”, “SAB-N4P5”, “SAB-Q6R7”, “SAB-S8T9”, “SAB-U1V2”,
+“SAB-W3X4”, “SAB-Y5Z6”, “SAB-A7B8”, “SAB-C9D1”, “SAB-E2F3”,
+“SAB-G4H5”, “SAB-J6K7”, “SAB-L8M9”, “SAB-N1P2”, “SAB-Q3R4”,
+“SAB-S5T6”, “SAB-U7V8”, “SAB-W9X1”, “SAB-Y2Z3”, “SAB-A4B5”,
+“SAB-C6D7”, “SAB-E8F9”, “SAB-G1H2”, “SAB-J3K4”, “SAB-L5M6”,
+“SAB-N7P8”, “SAB-Q9R1”, “SAB-S2T3”, “SAB-U4V5”, “SAB-W6X7”,
+“SAB-Y8Z9”, “SAB-A2C3”, “SAB-B4D5”, “SAB-E6G7”, “SAB-F8H9”,
+“SAB-J1L2”, “SAB-K3M4”, “SAB-N5Q6”, “SAB-P7R8”, “SAB-S9U1”,
+“SAB-T2V3”, “SAB-W4Y5”, “SAB-X6Z7”, “SAB-A8C9”, “SAB-B1D2”,
+“SAB-E3G4”, “SAB-F5H6”, “SAB-J7L8”, “SAB-K9M1”, “SAB-N2Q3”,
+“SAB-P4R5”, “SAB-S6U7”, “SAB-T8V9”, “SAB-W1Y2”, “SAB-X3Z4”,
+“SAB-A5C6”, “SAB-B7D8”, “SAB-E9G1”, “SAB-F2H3”, “SAB-J4L5”,
+“SAB-K6M7”, “SAB-N8Q9”, “SAB-P1R2”, “SAB-S3U4”, “SAB-T5V6”,
+“SAB-W7Y8”, “SAB-X9Z1”, “SAB-A3C4”, “SAB-B5D6”, “SAB-E7G8”,
+“SAB-F9H1”, “SAB-J2L3”, “SAB-K4M5”, “SAB-N6Q7”, “SAB-P8R9”,
+“SAB-S1U2”, “SAB-T3V4”, “SAB-W5Y6”, “SAB-X7Z8”, “SAB-A9C1”,
+“SAB-B2D3”, “SAB-E4G5”, “SAB-F6H7”, “SAB-J8L9”, “SAB-K1M2”,
+“SAB-N3Q4”, “SAB-P5R6”, “SAB-S7U8”, “SAB-T9V1”, “SAB-W2Y3”,
+“SAB-X4Z5”, “SAB-A6C7”, “SAB-B8D9”, “SAB-E1G2”, “SAB-F3H4”,
+}
+
+FREE_TRIAL_LIMIT = 3
+WHATSAPP_NUMBER  = “573228246703”
+WHATSAPP_MSG     = “Hola%2C+quiero+adquirir+acceso+completo+a+Saber+AI+Santander.+Adjunto+mi+comprobante+de+pago.”
+WHATSAPP_URL     = f”https://wa.me/{WHATSAPP_NUMBER}?text={WHATSAPP_MSG}”
+
+SYSTEM_PROMPT = “”“Eres el tutor líder de Saber AI Santander, un programa de preparación para el ICFES 2026
+dirigido a estudiantes de Santander, Colombia. Tu conocimiento está basado en los cuadernillos
+oficiales del ICFES 2026 (Matemáticas, Lectura Crítica, Ciencias Naturales, Inglés,
+Competencias Ciudadanas).
+
+Reglas de oro:
+
+1. Identifica siempre la competencia evaluada (Interpretación, Argumentación, Formulación, etc.).
+1. NUNCA des la respuesta final directamente. Primero haz una pregunta orientadora que guíe
+   al estudiante a llegar por sí mismo a la conclusión.
+1. Usa un tono de docente santandereano: directo, alentador, profesional y con calidez regional.
+1. Si el estudiante insiste en la respuesta, ofrece una pista adicional, no la solución completa.
+1. Celebra los avances del estudiante con frases motivadoras propias de Bucaramanga.
+1. Relaciona los ejercicios con contextos cotidianos de Santander cuando sea pertinente.”””
+
+# ─────────────────────────────────────────────────────────
+
+# 2. PAGE CONFIG
+
+# ─────────────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="Saber AI Santander",
-    page_icon="🦅",
-    layout="wide",
-    initial_sidebar_state="expanded",
+page_title=“Saber AI Santander”,
+page_icon=“🎓”,
+layout=“wide”,
+initial_sidebar_state=“expanded”,
 )
 
-st.markdown(
-    """
-    <style>
-    .header-banner {
-        background: linear-gradient(135deg, #FFCD00 0%, #e6b800 100%);
-        padding: 1.2rem 2rem;
-        border-radius: 12px;
-        margin-bottom: 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        box-shadow: 0 4px 15px rgba(255,205,0,0.4);
-    }
-    .header-banner h1 {
-        color: #1a1a1a;
-        margin: 0;
-        font-size: 1.9rem;
-        font-weight: 800;
-    }
-    .header-banner p {
-        color: #333;
-        margin: 0;
-        font-size: 0.95rem;
-    }
-    [data-testid="stSidebar"] {
-        background: #00914C !important;
-    }
-    [data-testid="stSidebar"] * {
-        color: #fff !important;
-    }
-    [data-testid="stSidebar"] .stSelectbox label {
-        color: #FFCD00 !important;
-        font-weight: 700;
-    }
-    .stButton > button {
-        background-color: #00914C !important;
-        color: #fff !important;
-        border: none !important;
-        border-radius: 8px !important;
-        font-weight: 700 !important;
-        padding: 0.5rem 1.5rem !important;
-    }
-    .stButton > button:hover {
-        background-color: #007a3d !important;
-    }
-    .pill-critico {
-        background: #e74c3c;
-        color: #fff;
-        border-radius: 20px;
-        padding: 4px 14px;
-        font-weight: 700;
-        font-size: 0.85rem;
-        display: inline-block;
-    }
-    .pill-mejorar {
-        background: #f39c12;
-        color: #fff;
-        border-radius: 20px;
-        padding: 4px 14px;
-        font-weight: 700;
-        font-size: 0.85rem;
-        display: inline-block;
-    }
-    .pill-bien {
-        background: #00914C;
-        color: #fff;
-        border-radius: 20px;
-        padding: 4px 14px;
-        font-weight: 700;
-        font-size: 0.85rem;
-        display: inline-block;
-    }
-    .info-card {
-        background: #f0faf5;
-        border-left: 5px solid #00914C;
-        padding: 1rem 1.2rem;
-        border-radius: 8px;
-        margin: 0.8rem 0;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+# ─────────────────────────────────────────────────────────
 
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+# 3. CUSTOM CSS
 
-for key, default in {
-    "messages": [],
-    "scores": {},
-    "area": "🔢 Matematicas",
-    "last_area": "",
-}.items():
-    if key not in st.session_state:
-        st.session_state[key] = default
+# ─────────────────────────────────────────────────────────
 
-MODULES = [
-    "📊 Diagnostico (Subir Resultados)",
-    "🔢 Matematicas",
-    "📚 Lectura Critica",
-    "🔬 Ciencias Naturales",
-    "⚖️ Sociales y Ciudadanas",
-    "🇬🇧 Ingles",
-    "🧠 Socioemocionales (Nuevo 2026)",
-]
+st.markdown(”””
 
-AREA_META = {
-    "🔢 Matematicas": {
-        "competencias": ["Interpretacion y representacion", "Formulacion y ejecucion", "Argumentacion"],
-        "tip": "En Matematicas, el ICFES 2026 evalua como aplicas el razonamiento en contextos reales, no solo formulas.",
-    },
-    "📚 Lectura Critica": {
-        "competencias": ["Identificar y ubicar informacion", "Relacionar e interpretar", "Evaluar y reflexionar"],
-        "tip": "Lectura Critica mide tu capacidad de analizar textos en tres niveles: local, inferencial y critico.",
-    },
-    "🔬 Ciencias Naturales": {
-        "competencias": ["Indagacion", "Explicacion de fenomenos", "Uso del conocimiento cientifico"],
-        "tip": "Ciencias Naturales integra Biologia, Fisica y Quimica. El foco esta en la indagacion cientifica.",
-    },
-    "⚖️ Sociales y Ciudadanas": {
-        "competencias": ["Conocimiento", "Argumentacion", "Multiperspectivismo"],
-        "tip": "Sociales evalua pensamiento critico ciudadano: historia, geografia y convivencia.",
-    },
-    "🇬🇧 Ingles": {
-        "competencias": ["Reading", "Listening", "Writing"],
-        "tip": "Ingles evalua tu nivel segun el Marco Comun Europeo (A1 a B+). Practica comprension lectora.",
-    },
-    "🧠 Socioemocionales (Nuevo 2026)": {
-        "competencias": ["Procesos emocionales", "Regulacion cognitiva", "Habilidades sociales e interpersonales"],
-        "tip": "Nueva seccion 2026! Evalua autorregulacion emocional, empatia y toma responsable de decisiones.",
-    },
-}
+<style>
+  /* Main background */
+  .stApp { background-color: #f0f4f8; }
 
-AREA_KEYWORDS = {
-    "Matematicas": ["matematicas", "matematica", "math"],
-    "Lectura Critica": ["lectura critica", "lectura"],
-    "Ciencias Naturales": ["ciencias naturales", "ciencias"],
-    "Sociales y Ciudadanas": ["sociales", "ciudadanas"],
-    "Ingles": ["ingles", "english"],
-    "Global": ["global", "puntaje global", "total"],
-}
+  /* Header banner */
+  .header-banner {
+    background: linear-gradient(135deg, #1a3c6e 0%, #2d6a9f 60%, #f5a623 100%);
+    color: white;
+    padding: 1.2rem 2rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 15px rgba(26,60,110,0.3);
+  }
+  .header-banner h1 { margin: 0; font-size: 1.8rem; font-weight: 800; }
+  .header-banner p  { margin: 0.2rem 0 0; opacity: 0.9; font-size: 0.95rem; }
 
+  /* Chat bubbles */
+  .chat-user {
+    background: #1a3c6e; color: white;
+    border-radius: 18px 18px 4px 18px;
+    padding: 0.75rem 1.1rem; margin: 0.4rem 0;
+    max-width: 75%; float: right; clear: both;
+    box-shadow: 0 2px 8px rgba(26,60,110,0.2);
+  }
+  .chat-assistant {
+    background: white; color: #1a1a2e;
+    border-radius: 18px 18px 18px 4px;
+    padding: 0.75rem 1.1rem; margin: 0.4rem 0;
+    max-width: 80%; float: left; clear: both;
+    border-left: 4px solid #f5a623;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .clearfix { clear: both; }
 
-def classify(score):
-    if score < 45:
-        return "Prioridad Critica", "pill-critico"
-    elif score <= 65:
-        return "Por Mejorar", "pill-mejorar"
-    else:
-        return "Buen Nivel", "pill-bien"
+  /* Trial counter */
+  .trial-badge {
+    background: #fff3cd; border: 1px solid #f5a623;
+    border-radius: 8px; padding: 0.4rem 0.9rem;
+    font-size: 0.85rem; color: #856404; font-weight: 600;
+    display: inline-block; margin-bottom: 0.8rem;
+  }
 
+  /* Paywall card */
+  .paywall-card {
+    background: linear-gradient(135deg, #1a3c6e, #2d6a9f);
+    color: white; border-radius: 16px;
+    padding: 2rem; text-align: center;
+    box-shadow: 0 8px 30px rgba(26,60,110,0.35);
+    margin-top: 1rem;
+  }
+  .paywall-card h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  .paywall-card p  { opacity: 0.92; font-size: 1rem; margin-bottom: 1rem; }
+  .payment-info {
+    background: rgba(255,255,255,0.15);
+    border-radius: 10px; padding: 1rem;
+    margin: 1rem 0; font-size: 0.95rem;
+  }
+  .payment-info strong { color: #f5a623; font-size: 1.1rem; }
 
-def extract_scores_from_text(text):
-    scores = {}
-    text_lower = text.lower()
-    lines = text_lower.split("\n")
-    for area_name, keywords in AREA_KEYWORDS.items():
-        for kw in keywords:
-            for line in lines:
-                if kw in line:
-                    numbers = re.findall(r"\b([1-9][0-9]?|100)\b", line)
-                    if numbers:
-                        for n in numbers:
-                            val = int(n)
-                            if 0 < val <= 100:
-                                scores[area_name] = val
-                                break
-                if area_name in scores:
-                    break
-            if area_name in scores:
-                break
-    return scores
+  /* WhatsApp button */
+  .wa-button {
+    display: inline-block;
+    background: #25d366; color: white !important;
+    padding: 0.7rem 1.8rem; border-radius: 30px;
+    text-decoration: none !important;
+    font-weight: 700; font-size: 1rem;
+    box-shadow: 0 4px 12px rgba(37,211,102,0.4);
+    transition: transform 0.2s;
+  }
+  .wa-button:hover { transform: scale(1.04); }
 
+  /* Sidebar */
+  .sidebar-title {
+    font-size: 1.1rem; font-weight: 700;
+    color: #1a3c6e; margin-bottom: 0.5rem;
+  }
+  .code-success {
+    background: #d4edda; color: #155724;
+    border-radius: 8px; padding: 0.6rem 1rem;
+    font-weight: 600; margin-top: 0.5rem;
+  }
+  .code-error {
+    background: #f8d7da; color: #721c24;
+    border-radius: 8px; padding: 0.6rem 1rem;
+    font-weight: 600; margin-top: 0.5rem;
+  }
+</style>
 
-def build_system_prompt(area, scores):
-    scores_txt = ""
-    if scores:
-        lines = ["  - " + k + ": " + str(v) + " (" + classify(v)[0] + ")" for k, v in scores.items()]
-        scores_txt = "\nPuntajes ICFES anteriores del estudiante:\n" + "\n".join(lines)
+“””, unsafe_allow_html=True)
 
-    competencias = ""
-    if area in AREA_META:
-        comp_list = ", ".join(AREA_META[area]["competencias"])
-        competencias = "\nArea actual: " + area + "\nCompetencias evaluadas: " + comp_list
+# ─────────────────────────────────────────────────────────
 
-    return (
-        "Eres un tutor veterano del ICFES con 20 anos de experiencia en Bucaramanga, Santander, Colombia.\n"
-        "Tu mision es preparar a los estudiantes para el Saber 11 del 26 de julio de 2026.\n\n"
-        "REGLAS ABSOLUTAS:\n"
-        "1. NUNCA des la respuesta directa primero. SIEMPRE haz una pregunta socratica para guiar al estudiante.\n"
-        "2. Identifica la competencia ICFES que evalua cada pregunta (ej: Argumentacion, Interpretacion, Indagacion).\n"
-        "3. Usa ejemplos con referencias locales de Santander: la industria del calzado en Bucaramanga, "
-        "el Canon del Chicamocha, la Metrolinea, el hormiguero, el mute santandereano, "
-        "el mercado de Giron, la UIS y la UNAB.\n"
-        "4. Tono: animador, directo, profesional. Como un buen profesor bumangues.\n"
-        "5. Si el estudiante tiene puntajes bajos (menor a 45), prioriza esas areas con mas enfasis.\n"
-        "6. Para el modulo Socioemocionales (nuevo 2026), evalua procesos emocionales, "
-        "regulacion cognitiva y habilidades interpersonales.\n"
-        "7. Cuando respondas, primero menciona la competencia evaluada en negrita, luego haz tu pregunta guia.\n"
-        "8. Maximo 3 parrafos por respuesta para mantenerla concisa y clara.\n"
-        + scores_txt
-        + competencias
-        + "\n\nEjemplo de respuesta correcta:\n"
-        '"**Competencia: Argumentacion** -- Buena pregunta! Antes de explicarte, dime: '
-        "si vendes zapatos en el barrio Ciudadela Real de Minas y necesitas saber cuanto ganaste en el mes, "
-        'que informacion minima necesitarias para calcularlo?"'
-    )
+# 4. SESSION STATE INITIALIZATION
 
+# ─────────────────────────────────────────────────────────
 
-# ── SIDEBAR ──────────────────────────────────────────────────────────────────
+if “messages”       not in st.session_state: st.session_state.messages       = []
+if “trial_count”    not in st.session_state: st.session_state.trial_count    = 0
+if “access_granted” not in st.session_state: st.session_state.access_granted = False
+if “active_code”    not in st.session_state: st.session_state.active_code    = None
+if “code_input_val” not in st.session_state: st.session_state.code_input_val = “”
+if “code_message”   not in st.session_state: st.session_state.code_message   = “”
+if “code_valid”     not in st.session_state: st.session_state.code_valid     = None
+
+# ─────────────────────────────────────────────────────────
+
+# 5. DEVICE LOCK via st.query_params
+
+# When a code is validated, we store it in the URL params.
+
+# On reload, if the param is present and valid, access is auto-restored.
+
+# ─────────────────────────────────────────────────────────
+
+params = st.query_params
+if not st.session_state.access_granted:
+stored_code = params.get(“code”, None)
+if stored_code and stored_code in VALID_CODES:
+st.session_state.access_granted = True
+st.session_state.active_code    = stored_code
+
+# ─────────────────────────────────────────────────────────
+
+# 6. SIDEBAR — Access Code Validation
+
+# ─────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("## 🦅 Saber AI Santander")
-    st.markdown("---")
-    area = st.selectbox("Selecciona tu modulo:", MODULES)
-    st.session_state["area"] = area
-    st.markdown("---")
-    st.markdown("📅 **Examen:** 26 de Julio, 2026")
-    st.markdown("📍 **Para estudiantes de Santander**")
+st.markdown(”## 🎓 Saber AI Santander”)
+st.markdown(”—”)
 
-    if st.session_state["scores"]:
-        st.markdown("---")
-        st.markdown("**📈 Mis puntajes ICFES:**")
-        for mat, score in st.session_state["scores"].items():
-            label, css = classify(score)
-            badge = '<span class="' + css + '">' + str(score) + "</span>"
-            st.markdown(mat + ": " + badge, unsafe_allow_html=True)
-
-# ── HEADER ───────────────────────────────────────────────────────────────────
-
-st.markdown(
-    """
-    <div class="header-banner">
-        <div style="font-size:3rem">🦅</div>
-        <div>
-            <h1>Saber AI Santander</h1>
-            <p>Tu tutor virtual para el Saber 11 &middot; Bucaramanga &amp; Santander &middot; Examen: 26 Jul 2026</p>
-        </div>
+```
+if st.session_state.access_granted:
+    st.markdown(f"""
+    <div class='code-success'>
+    ✅ Acceso completo activo<br>
+    <small>Código: <strong>{st.session_state.active_code}</strong></small>
     </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# ── MODULE: DIAGNOSTICO ───────────────────────────────────────────────────────
-
-if area == "📊 Diagnostico (Subir Resultados)":
-    st.subheader("📊 Analizador de Resultados ICFES")
-    st.markdown(
-        '<div class="info-card">Sube el PDF con tus resultados ICFES anteriores. '
-        "El tutor analizara tus puntajes y personalizara las sesiones de estudio.</div>",
-        unsafe_allow_html=True,
-    )
-
-    uploaded = st.file_uploader("Selecciona tu PDF de resultados ICFES", type=["pdf"])
-
-    if uploaded:
-        with st.spinner("Leyendo tu PDF... un momento 🦅"):
-            try:
-                full_text = ""
-                with pdfplumber.open(uploaded) as pdf:
-                    for page in pdf.pages:
-                        t = page.extract_text()
-                        if t:
-                            full_text += t + "\n"
-
-                scores = extract_scores_from_text(full_text)
-
-                if scores:
-                    st.session_state["scores"] = scores
-                    st.success("Puntajes detectados exitosamente!")
-
-                    cols = st.columns(len(scores))
-                    for i, (mat, score) in enumerate(scores.items()):
-                        label, css = classify(score)
-                        with cols[i]:
-                            st.markdown(
-                                "<div style='text-align:center'>"
-                                "<div style='font-size:2rem;font-weight:800;color:#00914C'>"
-                                + str(score)
-                                + "</div>"
-                                "<div style='font-size:0.8rem;font-weight:700'>"
-                                + mat
-                                + "</div>"
-                                '<span class="'
-                                + css
-                                + '">'
-                                + label
-                                + "</span>"
-                                "</div>",
-                                unsafe_allow_html=True,
-                            )
-
-                    st.markdown("---")
-                    st.markdown("### Plan de Estudio Recomendado")
-                    for mat, score in scores.items():
-                        label, _ = classify(score)
-                        if score < 45:
-                            st.error("🔴 **" + mat + "** (" + str(score) + " pts): " + label + " -- Dedica minimo 2 horas diarias aqui.")
-                        elif score <= 65:
-                            st.warning("🟡 **" + mat + "** (" + str(score) + " pts): " + label + " -- Practica ejercicios intermedios.")
-                        else:
-                            st.success("🟢 **" + mat + "** (" + str(score) + " pts): " + label + " -- Mantén el ritmo con repasos semanales.")
-
-                    st.info("Selecciona un modulo en la barra lateral para comenzar a practicar con el tutor.")
-
-                else:
-                    st.warning(
-                        "No se encontraron puntajes numericos en el PDF. "
-                        "Asegurate de subir el reporte oficial del ICFES. "
-                        "Puedes ingresar tus puntajes manualmente abajo."
-                    )
-
-            except Exception as e:
-                st.error("Error al leer el PDF: " + str(e))
-
-    with st.expander("Ingresar puntajes manualmente"):
-        manual_scores = {}
-        areas_list = ["Matematicas", "Lectura Critica", "Ciencias Naturales", "Sociales y Ciudadanas", "Ingles"]
-        c1, c2 = st.columns(2)
-        for i, a in enumerate(areas_list):
-            col = c1 if i % 2 == 0 else c2
-            val = col.number_input(a, min_value=0, max_value=100, value=50, key="manual_" + a)
-            manual_scores[a] = val
-        if st.button("Guardar puntajes"):
-            st.session_state["scores"] = manual_scores
-            st.success("Puntajes guardados! Selecciona un modulo para comenzar.")
-
-# ── MODULE: TUTOR CHAT ────────────────────────────────────────────────────────
-
+    """, unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("### 📊 Tu sesión")
+    st.markdown(f"💬 Mensajes enviados: **{len(st.session_state.messages) // 2}**")
 else:
-    meta = AREA_META.get(area, {})
+    st.markdown("<div class='sidebar-title'>🔑 ¿Tienes código de acceso?</div>", unsafe_allow_html=True)
+    code_input = st.text_input(
+        "Ingresa tu código",
+        placeholder="SAB-XXXX",
+        max_chars=8,
+        label_visibility="collapsed",
+    )
+    if st.button("✅ Validar código", use_container_width=True):
+        cleaned = code_input.strip().upper()
+        if cleaned in VALID_CODES:
+            st.session_state.access_granted = True
+            st.session_state.active_code    = cleaned
+            st.session_state.code_valid     = True
+            st.session_state.code_message   = f"✅ ¡Bienvenido! Código **{cleaned}** activado."
+            # Bind code to browser session via URL param
+            st.query_params["code"] = cleaned
+            st.rerun()
+        else:
+            st.session_state.code_valid   = False
+            st.session_state.code_message = "❌ Código inválido. Verifica e intenta de nuevo."
 
-    st.subheader(area)
-
-    if meta:
-        comp_str = " - ".join(meta["competencias"])
+    if st.session_state.code_message:
+        css_class = "code-success" if st.session_state.code_valid else "code-error"
         st.markdown(
-            '<div class="info-card"><b>Competencias evaluadas:</b> '
-            + comp_str
-            + "<br><small>"
-            + meta["tip"]
-            + "</small></div>",
+            f"<div class='{css_class}'>{st.session_state.code_message}</div>",
             unsafe_allow_html=True,
         )
 
-    if st.session_state.get("last_area") != area:
-        st.session_state["messages"] = []
-        st.session_state["last_area"] = area
-
-        score_note = ""
-        if st.session_state["scores"]:
-            area_key = area.split(" ", 1)[-1].strip()
-            for k, v in st.session_state["scores"].items():
-                if k.lower() in area_key.lower() or area_key.lower() in k.lower():
-                    label, _ = classify(v)
-                    score_note = " Veo que en esta area obtuviste **" + str(v) + " puntos** (" + label + ")."
-                    break
-
-        greeting = (
-            "Bienvenido, futuro profesional santandereano! 🦅"
-            + score_note
-            + " Estamos en **"
-            + area
-            + "** y hoy vamos a trabajar duro como los artesanos del calzado en el barrio Trigal. "
-            "Cuentame: que tema o pregunta del ICFES te esta generando mas dificultad?"
-        )
-        st.session_state["messages"].append({"role": "assistant", "content": greeting})
-
-    for msg in st.session_state["messages"]:
-        avatar = "🦅" if msg["role"] == "assistant" else "🎓"
-        with st.chat_message(msg["role"], avatar=avatar):
-            st.markdown(msg["content"])
-
-    if prompt := st.chat_input("Preguntame sobre " + area.split(" ", 1)[-1] + "..."):
-        st.session_state["messages"].append({"role": "user", "content": prompt})
-        with st.chat_message("user", avatar="🎓"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant", avatar="🦅"):
-            with st.spinner("El tutor esta pensando..."):
-                try:
-                    system_prompt = build_system_prompt(area, st.session_state["scores"])
-                    api_messages = [{"role": "system", "content": system_prompt}]
-                    for m in st.session_state["messages"]:
-                        api_messages.append({"role": m["role"], "content": m["content"]})
-
-                    response = client.chat.completions.create(
-                        model="gpt-4o",
-                        messages=api_messages,
-                        max_tokens=600,
-                        temperature=0.7,
-                    )
-                    reply = response.choices[0].message.content
-                except Exception as e:
-                    reply = (
-                        "Hubo un problema de conexion con el tutor: "
-                        + str(e)
-                        + ". Verifica tu API key en los Secrets de Streamlit."
-                    )
-
-                st.markdown(reply)
-                st.session_state["messages"].append({"role": "assistant", "content": reply})
-
-    if meta and len(st.session_state["messages"]) <= 1:
-        st.markdown("---")
-        st.markdown("**Inicio rapido -- Elige un tema:**")
-        cols = st.columns(len(meta["competencias"]))
-        for i, comp in enumerate(meta["competencias"]):
-            if cols[i].button(comp, key="quick_" + str(i)):
-                msg = "Quiero practicar la competencia de **" + comp + "** para el ICFES."
-                st.session_state["messages"].append({"role": "user", "content": msg})
-                st.rerun()
-
-# ── FOOTER ────────────────────────────────────────────────────────────────────
+    st.markdown("---")
+    trial_left = max(0, FREE_TRIAL_LIMIT - st.session_state.trial_count)
+    st.markdown(f"""
+    <div class='trial-badge'>
+    🎯 Demo gratuito: {trial_left} mensaje(s) restante(s)
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
+st.markdown("**📚 Pruebas disponibles**")
+st.markdown("• Matemáticas\n• Lectura Crítica\n• Ciencias Naturales\n• Inglés\n• Competencias Ciudadanas")
+st.markdown("---")
+st.markdown("<small>📅 ICFES Saber 11 — 26 de julio de 2026</small>", unsafe_allow_html=True)
+st.markdown("<small>📍 Bucaramanga, Santander</small>", unsafe_allow_html=True)
+```
+
+# ─────────────────────────────────────────────────────────
+
+# 7. MAIN HEADER
+
+# ─────────────────────────────────────────────────────────
+
+st.markdown(”””
+
+<div class="header-banner">
+  <h1>🎓 Saber AI Santander</h1>
+  <p>Tu tutor inteligente para el ICFES 2026 · Basado en los cuadernillos oficiales del ICFES</p>
+</div>
+""", unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────
+
+# 8. CHAT HISTORY DISPLAY
+
+# ─────────────────────────────────────────────────────────
+
+chat_container = st.container()
+with chat_container:
+for msg in st.session_state.messages:
+if msg[“role”] == “user”:
 st.markdown(
-    "<center style='color:#888;font-size:0.8rem'>"
-    "🦅 Saber AI Santander -- Basado en los cuadernillos ICFES 2026 oficiales -- "
-    "Hecho con amor para los estudiantes de Bucaramanga y Santander"
-    "</center>",
+f”<div class='chat-user'>👤 {msg[‘content’]}</div><div class='clearfix'></div>”,
+unsafe_allow_html=True,
+)
+else:
+st.markdown(
+f”<div class='chat-assistant'>🎓 {msg[‘content’]}</div><div class='clearfix'></div>”,
+unsafe_allow_html=True,
+)
+
+# ─────────────────────────────────────────────────────────
+
+# 9. PAYWALL (shown when trial exhausted and no code)
+
+# ─────────────────────────────────────────────────────────
+
+trial_exhausted = (
+not st.session_state.access_granted
+and st.session_state.trial_count >= FREE_TRIAL_LIMIT
+)
+
+if trial_exhausted:
+st.markdown(”””
+<div class='paywall-card'>
+<h2>🚀 ¡Has llegado al límite del demo!</h2>
+<p>Para asegurar tu puesto en la Universidad y dominar el Icfes del <strong>26 de Julio</strong>,
+adquiere el acceso completo.</p>
+<div class='payment-info'>
+💳 Envía <strong>$49,000 COP</strong> por Nequi al número<br>
+<strong style="font-size:1.3rem;">3228246703</strong><br><br>
+📲 Luego envía el comprobante por WhatsApp para recibir tu código único.
+</div>
+</div>
+“””, unsafe_allow_html=True)
+
+```
+st.markdown(
+    f"<div style='text-align:center; margin-top:1rem;'>"
+    f"<a href='{WHATSAPP_URL}' target='_blank' class='wa-button'>"
+    f"💬 Enviar comprobante por WhatsApp</a></div>",
     unsafe_allow_html=True,
+)
+```
+
+# ─────────────────────────────────────────────────────────
+
+# 10. STUDY PLAN DOWNLOAD (only for validated users)
+
+# ─────────────────────────────────────────────────────────
+
+if st.session_state.access_granted and len(st.session_state.messages) >= 2:
+st.markdown(”—”)
+if st.button(“📄 Descargar Plan de Estudio Personalizado”, use_container_width=True):
+with st.spinner(“⏳ El tutor está generando tu plan de 7 días…”):
+try:
+client = anthropic.Anthropic()
+
+```
+            history_text = "\n".join(
+                f"{'Estudiante' if m['role'] == 'user' else 'Tutor'}: {m['content']}"
+                for m in st.session_state.messages
+            )
+
+            plan_prompt = f"""Eres el tutor líder de Saber AI Santander. 
+```
+
+Analiza el siguiente historial de conversación de un estudiante preparándose para el ICFES 2026
+y genera un Plan de Estudio Personalizado de 7 días.
+
+HISTORIAL DE CONVERSACIÓN:
+{history_text}
+
+INSTRUCCIONES PARA EL PLAN:
+
+- Identifica las áreas y competencias donde el estudiante mostró dificultades.
+- Crea un plan diario detallado (Día 1 al Día 7) con:
+  - Tema principal del día
+  - Competencia ICFES a trabajar
+  - Recursos sugeridos (tipos de ejercicios)
+  - Objetivo concreto del día
+  - Consejo motivacional estilo santandereano
+- Al final, incluye un resumen de fortalezas y áreas de mejora.
+- Usa un tono cálido, profesional y motivador propio de un docente de Santander.
+- Recuerda que el ICFES es el 26 de julio de 2026.”””
+  
+  ```
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=2000,
+                messages=[{"role": "user", "content": plan_prompt}],
+            )
+            plan_text = response.content[0].text
+  
+            now       = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+            file_text = f"""╔══════════════════════════════════════════════════════╗
+  ```
+
+║      PLAN DE ESTUDIO PERSONALIZADO — ICFES 2026      ║
+║              Saber AI Santander                      ║
+╚══════════════════════════════════════════════════════╝
+
+Generado el: {now}
+Código de acceso: {st.session_state.active_code}
+Fecha del ICFES:  26 de julio de 2026
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{plan_text}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+¡Tú puedes, santandereano! El esfuerzo de hoy es
+el logro de mañana. ¡A estudiar con todo!
+📍 Bucaramanga, Santander, Colombia
+“””
+st.download_button(
+label=“⬇️ Descargar mi plan (.txt)”,
+data=file_text,
+file_name=f”plan_estudio_ICFES_{st.session_state.active_code}.txt”,
+mime=“text/plain”,
+use_container_width=True,
+)
+except Exception as e:
+st.error(f”Ocurrió un error al generar el plan: {e}”)
+
+# ─────────────────────────────────────────────────────────
+
+# 11. CHAT INPUT & RESPONSE
+
+# ─────────────────────────────────────────────────────────
+
+chat_allowed = st.session_state.access_granted or st.session_state.trial_count < FREE_TRIAL_LIMIT
+
+if chat_allowed:
+if not st.session_state.access_granted:
+trial_left = FREE_TRIAL_LIMIT - st.session_state.trial_count
+st.markdown(
+f”<div class='trial-badge'>🎯 Demo: {trial_left} mensaje(s) gratuito(s) restante(s)</div>”,
+unsafe_allow_html=True,
+)
+
+```
+user_input = st.chat_input(
+    "Escribe tu pregunta sobre el ICFES 2026... (Matemáticas, Lectura Crítica, Ciencias, Inglés, Ciudadanas)"
+)
+
+if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
+
+    with st.spinner("🎓 El tutor está pensando..."):
+        try:
+            client = anthropic.Anthropic()
+            api_messages = [
+                {"role": m["role"], "content": m["content"]}
+                for m in st.session_state.messages
+            ]
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1000,
+                system=SYSTEM_PROMPT,
+                messages=api_messages,
+            )
+            assistant_reply = response.content[0].text
+        except Exception as e:
+            assistant_reply = (
+                f"⚠️ Ocurrió un error al conectar con el tutor: {e}. "
+                "Por favor intenta de nuevo."
+            )
+
+    st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
+
+    if not st.session_state.access_granted:
+        st.session_state.trial_count += 1
+
+    st.rerun()
+```
+
+else:
+# Trial exhausted and no valid code — disable input visually
+st.text_input(
+“Chat deshabilitado”,
+placeholder=“🔒 Adquiere acceso completo para continuar estudiando…”,
+disabled=True,
+label_visibility=“collapsed”,
 )
